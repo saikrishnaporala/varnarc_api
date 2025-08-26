@@ -1,0 +1,43 @@
+name: Deploy Vite React App to Linux Server
+
+on:
+  push:
+    branches:
+      - main   # deploy on push to main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: "cpanel ftp secrets"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Vite React app
+        run: npm run build
+
+      # --- Option 1: Deploy via SSH/SCP (Linux server) ---
+    #   - name: Deploy via SCP
+    #     uses: appleboy/scp-action@v0.1.7
+    #     with:
+    #       host: ${{ secrets.SSH_HOST }}
+    #       username: ${{ secrets.SSH_USER }}
+    #       key: ${{ secrets.SSH_PRIVATE_KEY }}
+    #       source: "dist/*"
+    #       target: "/var/www/html"   # change if your web root is different
+
+      # --- Option 2: Deploy via FTP (cPanel shared hosting) ---
+      # Uncomment if your server is cPanel without SSH access
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.CPANEL_FTP_SERVER }}
+          username: ${{ secrets.CPANEL_FTP_USERNAME }}
+          password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: dist/
+          server-dir: /api_varnarc/

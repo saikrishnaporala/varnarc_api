@@ -2,59 +2,71 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 
+type AxiosConfig = Parameters<typeof axios>[0]; 
+
 /**
  * Downloads a remote file to a temporary location and returns the file path and suggested name.
  * Supports direct URLs. For Google Drive share links, pass the direct download URL when possible.
  */
 export async function downloadToTemp(url: string): Promise<{ filePath: string; filename: string }> {
   url = normalizeUrl(url);
-  const tempDir = path.join(process.cwd(), 'downloads');
+  const tempDir = path.join(process.cwd(), "downloads");
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-  console.log("URL : "+url);
-  // Try to extract filename from URL or headers
-  const resp = await axios.get(url, {
-    responseType: 'stream',
-    maxRedirects: 5,
+
+  console.log("URL:", url);
+
+  const config: AxiosConfig = {
+    url,
+    method: "GET",
+    responseType: "stream",
     headers: {
-      'User-Agent': 'Mozilla/5.0 (DataImporter)'
+      "User-Agent": "Mozilla/5.0 (DataImporter)",
     },
-    validateStatus: s => s >= 200 && s < 400
-  });
-  const disp = resp.headers['content-disposition'] as string | undefined;
-  let suggested = 'remote_file';
+    validateStatus: (s) => !!s && s >= 200 && s < 400,
+  };
+
+  const resp = await axios(config);
+
+  // Handle filename from Content-Disposition header
+  const disp = resp.headers["content-disposition"] as string | undefined;
+  let suggested = "remote_file";
   if (disp) {
     const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disp);
-    const fn = decodeURIComponent((match?.[1] || match?.[2] || '').trim());
+    const fn = decodeURIComponent((match?.[1] || match?.[2] || "").trim());
     if (fn) suggested = fn;
   } else {
     const urlPath = new URL(url).pathname;
     const base = path.basename(urlPath);
-    if (base && base !== '/' && base !== '') suggested = base;
+    if (base && base !== "/" && base !== "") suggested = base;
   }
 
-  // If no extension, try infer from content-type
-  const contentType = String(resp.headers['content-type'] || '').toLowerCase();
+  // Infer extension if missing
+  const contentType = String(resp.headers["content-type"] || "").toLowerCase();
   const ext = path.extname(suggested).toLowerCase();
   if (!ext) {
-    if (contentType.includes('text/csv') || contentType.includes('application/csv')) {
-      suggested += '.csv';
-    } else if (contentType.includes('sheet') || contentType.includes('excel')) {
-      suggested += '.xlsx';
+    if (contentType.includes("text/csv") || contentType.includes("application/csv")) {
+      suggested += ".csv";
+    } else if (contentType.includes("sheet") || contentType.includes("excel")) {
+      suggested += ".xlsx";
     }
   }
 
-  const unique = `${Date.now()}-${Math.round(Math.random()*1e9)}`;
-  const filename = `${unique}-${suggested}`;
-  const filePath = path.join(tempDir, filename);
+  // Generate unique filename
+  const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+  const finalFilename = `${unique}-${suggested}`;
+  const filePath = path.join(tempDir, finalFilename);
 
+  // Cast resp.data to stream
+  const stream = resp.data as NodeJS.ReadableStream;
   const writer = fs.createWriteStream(filePath);
+
   await new Promise<void>((resolve, reject) => {
-    resp.data.pipe(writer);
-    writer.on('finish', () => resolve());
-    writer.on('error', reject);
+    stream.pipe(writer);
+    writer.on("finish", resolve);
+    writer.on("error", reject);
   });
 
-  return { filePath, filename: suggested };
+  return { filePath, filename: finalFilename };
 }
 
 function normalizeUrl(input: string): string {

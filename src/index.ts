@@ -26,7 +26,7 @@ const options: Options = {
       version: "1.0.0",
       description: "Express API with Swagger UI (TypeScript example)",
     },
-    servers: [{ url: `http://localhost:4000` }],
+    servers: [{ url: `http://api.varnarc.com` }],
   },
   apis: ["./src/routes/*.ts"],
 };

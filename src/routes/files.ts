@@ -1,12 +1,40 @@
 import { Router, Request, Response } from "express";
 import path from "path";
 import fs from "fs/promises";
-import { getDatabasePool } from "./db";
-import { downloadAndParseFile, importDataToTable } from "./fileImporter";
+import { getDatabasePool } from "../services/db";
+import { downloadAndParseFile, importDataToTable } from "../services/fileImporter";
 
 const router = Router();
 
 // Upload API
+/**
+ * @openapi
+ * /api/files/{id}/upload:
+ *   post:
+ *     summary: Upload a file for a given ID
+ *     tags:
+ *       - Files
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The file ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: File uploaded successfully
+ */
 router.post("/:id/upload", async (req: Request, res: Response) => {
     const pool = await getDatabasePool();
     const { id } = req.params;
